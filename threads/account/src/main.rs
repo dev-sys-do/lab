@@ -1,3 +1,4 @@
+use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
@@ -54,6 +55,10 @@ fn main() {
     let parent_account = Arc::clone(&account);
     let banker_account = Arc::clone(&account);
 
+    let (notification_sender, notification_receiver) = channel();
+
+    let child_notification_sender = notification_sender.clone();
+
     let child_thread = thread::spawn(move || {
         let mut total_withdrawal = 0;
 
@@ -62,7 +67,11 @@ fn main() {
             let mut locked_account = child_account.lock().unwrap();
             let withdrawal = locked_account.withdrawal(50);
             total_withdrawal += withdrawal;
-            println!("CHILD <- {}", withdrawal);
+            if withdrawal > 0 {
+                child_notification_sender
+                    .send(format!("WITHDRAWAL <- {}", withdrawal))
+                    .unwrap();
+            }
 
             if total_withdrawal >= GRAND_TOTAL {
                 break;
@@ -78,7 +87,9 @@ fn main() {
             let mut locked_account = parent_account.lock().unwrap();
 
             locked_account.deposit(80);
-            println!("PARENT -> {}", 80);
+            notification_sender
+                .send(format!("DEPOSIT    -> {}", 80))
+                .unwrap();
             total_deposit += 80;
 
             if total_deposit >= GRAND_TOTAL {
@@ -89,9 +100,14 @@ fn main() {
 
     // Monitoring thread
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(500));
-        let locked_account = banker_account.lock().unwrap();
-        println!("** Balance {} **", locked_account.balance());
+        for notification in &notification_receiver {
+            let locked_account = banker_account.lock().unwrap();
+            println!(
+                "Transaction: {} Balance {}",
+                notification,
+                locked_account.balance()
+            );
+        }
     });
 
     child_thread.join().unwrap();
