@@ -2,6 +2,7 @@ use std::thread;
 use std::time::Duration;
 
 fn main() {
+    let timeout = 1;
     // Thread messages
     let messages = vec!["I'm the first thread!", "I'm the second thread!"];
 
@@ -11,7 +12,7 @@ fn main() {
     for message in messages {
         // Each thread is going to own its message
         let handle = thread::spawn(move || {
-            thread::sleep(Duration::from_secs(1));
+            thread::sleep(Duration::from_secs(timeout));
             println!("{}", message);
         });
 
