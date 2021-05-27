@@ -1,6 +1,8 @@
 use std::fs;
 use std::io::Read;
 use std::net::TcpListener;
+use std::thread;
+use std::thread::JoinHandle;
 
 use micro_http::{Body, Method, Request, RequestError, Response, StatusCode, Version};
 
@@ -54,19 +56,24 @@ fn main() -> std::result::Result<(), PimaError> {
 
     for stream in server.incoming() {
         let mut stream = stream.map_err(PimaError::IoError)?;
-        let mut client_data = [0; 1024];
 
-        println!(
-            "New client {:?}",
-            stream.peer_addr().map_err(PimaError::IoError)?
-        );
+        let _: JoinHandle<std::result::Result<(), PimaError>> = thread::spawn(move || {
+            let mut client_data = [0; 1024];
 
-        stream.read(&mut client_data).map_err(PimaError::IoError)?;
+            println!(
+                "New client {:?}",
+                stream.peer_addr().map_err(PimaError::IoError)?
+            );
 
-        let response = http_response(&client_data)?;
-        response
-            .write_all(&mut stream)
-            .map_err(PimaError::IoError)?;
+            stream.read(&mut client_data).map_err(PimaError::IoError)?;
+
+            let response = http_response(&client_data)?;
+            response
+                .write_all(&mut stream)
+                .map_err(PimaError::IoError)?;
+
+            Ok(())
+        });
     }
 
     Ok(())
