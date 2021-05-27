@@ -1,7 +1,8 @@
+use std::fs;
 use std::io::Read;
 use std::net::TcpListener;
 
-use micro_http::{Response, StatusCode, Version};
+use micro_http::{Body, Response, StatusCode, Version};
 
 #[derive(Debug)]
 pub enum PimaError {
@@ -11,8 +12,10 @@ pub enum PimaError {
 const DEFAULT_PORT: u16 = 8080;
 const DEFAULT_IP: &str = "0.0.0.0";
 const DEFAULT_SERVER: &str = "pima 0.1";
+const DEFAULT_404: &str = "/tmp/pima/404.html";
 
 fn main() -> std::result::Result<(), PimaError> {
+    let not_found = Body::new(fs::read_to_string(DEFAULT_404).map_err(PimaError::IoError)?);
     let server = TcpListener::bind(format!("{}:{}", DEFAULT_IP, DEFAULT_PORT))
         .map_err(PimaError::IoError)?;
 
@@ -32,6 +35,7 @@ fn main() -> std::result::Result<(), PimaError> {
 
         let mut response = Response::new(Version::Http11, StatusCode::NotFound);
         response.set_server(DEFAULT_SERVER);
+        response.set_body(not_found.clone());
 
         stream.read(&mut client_data).map_err(PimaError::IoError)?;
         response
