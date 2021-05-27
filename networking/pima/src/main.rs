@@ -1,9 +1,13 @@
+#[macro_use(crate_authors)]
+extern crate clap;
+
 use std::fs;
 use std::io::Read;
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::thread::JoinHandle;
 
+use clap::{App, Arg};
 use micro_http::{Body, Method, Request, RequestError, Response, StatusCode, Version};
 
 #[derive(Debug)]
@@ -13,7 +17,7 @@ pub enum PimaError {
     HttpRequestError(RequestError),
 }
 
-const DEFAULT_PORT: u16 = 8080;
+const DEFAULT_PORT: &str = "8080";
 const DEFAULT_IP: &str = "0.0.0.0";
 const DEFAULT_ROOT: &str = "/tmp/pima";
 const DEFAULT_SERVER: &str = "pima 0.1";
@@ -95,7 +99,44 @@ impl PimaServer {
 }
 
 fn main() -> std::result::Result<(), PimaError> {
-    let pima_server = PimaServer::new(DEFAULT_IP, DEFAULT_PORT, DEFAULT_ROOT);
+    let arguments = App::new("pima")
+        .author(crate_authors!())
+        .about("pima HTTP server")
+        .arg(
+            Arg::with_name("ip")
+                .long("ip")
+                .short("i")
+                .help("HTTP serving IP")
+                .takes_value(true)
+                .default_value(DEFAULT_IP),
+        )
+        .arg(
+            Arg::with_name("port")
+                .long("port")
+                .short("p")
+                .help("TCP port")
+                .takes_value(true)
+                .default_value(DEFAULT_PORT),
+        )
+        .arg(
+            Arg::with_name("root")
+                .long("root")
+                .short("r")
+                .help("pima root folder")
+                .takes_value(true)
+                .default_value(DEFAULT_ROOT),
+        )
+        .get_matches();
+
+    let pima_server = PimaServer::new(
+        arguments.value_of("ip").expect("Missing IP setting"),
+        arguments
+            .value_of("port")
+            .expect("Missing TCP port setting")
+            .parse::<u16>()
+            .expect("TCP port should be a positive integer"),
+        arguments.value_of("root").expect("Missing root folder"),
+    );
     let server = pima_server.listen()?;
 
     for stream in server.incoming() {
